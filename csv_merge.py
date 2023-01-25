@@ -3,7 +3,7 @@ import glob
 import pandas as pd
 
 #changes the current directory to the specified path
-os.chdir(r"C:\Users\admin\Documents\01_Ruben_Scripts\im.nca.postprocessing\aggregation.region\vegetation.carbon.stock\tmp\vcs.aggregated.country")
+os.chdir(r"C:\Users\ruben.crespo\Documents\02_Ruben_scripts\Python_codigo\im.nca.postprocessing\aggregation.region\vegetation.carbon.stock\tmp\vcs.aggregated.country")
 
 extension = 'csv'
 #We create a list. {}= takes the name of the file.csv in format extension
