@@ -4,7 +4,7 @@
 """
 SYNOPSIS
     forest_condition_variable_bounds_extraction.py -i <file_path> -u <file_path> -l <file_path> -o <folder_path>
-    -n <variable_name> -e <file_path> -d -x [-v,--verbose] [-h,--help] [--version]
+    -n <variable_name> -e <file_path> -d [-v,--verbose] [-h,--help] [--version]
 
 DESCRIPTION
     This script extracts the forest condition variable values for the references areas representing the lower and
@@ -14,7 +14,6 @@ DESCRIPTION
           see Maes et al. (2023) article for more info which forest ecosystem types have to inherit the bounds of
           another ecosystem type.
     NOTE2: with the parameter d you can dump all the raw data per ecosystem type to do own calculations.
-    NOTE3: use the -x parameter if you want to overrule some LUT results as described in Maes et al. (2023)
 
 PREREQUISITES
     Python => 3.10.12
@@ -32,7 +31,7 @@ AUTHOR
     Dr. Marcel Buchhorn <marcel.buchhorn@vito.be>
 
 VERSION
-    1.3 (2023-12-13)
+    1.0 (2023-11-24)
 """
 
 
@@ -55,7 +54,7 @@ block_shape = (1024, 1024)
 ##### FUNCTIONS
 def parse_args():
     parser = optparse.OptionParser(formatter=optparse.TitledHelpFormatter(), usage=globals()['__doc__'],
-                                   version="%prog v1.3")
+                                   version="%prog v1.0")
     parser.add_option('-v', '--verbose', action='store_true', default=False, help='verbose output')
     parser.add_option('-i', '--path_var', help='Path to raster data of forest condition variable.',
                       dest='path_var')
@@ -65,9 +64,6 @@ def parse_args():
     parser.add_option('-n', '--name', help='Path to output folder.', dest='var_name')
     parser.add_option('-e', '--eco_lut', help='Path to LUT of forest ecosystem types.', dest='path_eco_lut')
     parser.add_option('-d', '--dump', action='store_true', default=False, help='dump the variable data per eco')
-    parser.add_option('-x', '--overrule', action='store_true', default=False, help='overrule LUT results as '
-                                                                                   'described in Maes article for '
-                                                                                   'three biogeographic regions')
 
     # parse the given system arguments
     (options, args) = parser.parse_args()
@@ -178,25 +174,13 @@ def data_extraction(options, var_dtype, eco_list):
 
         # now iterate over the blocks of src files and process
         for index, window in block_window_generator(block_shape, src_var.height, src_var.width):
-            var_nodata = src_var.nodata
-            #fix for issue when no nodata value is defined
-            if var_nodata is None:
-                raise ValueError('the variable dataset has no nodata defined. Please make sure a valid nodata value '
-                                 'has been assigned to the raster dataset before you try it again.')
-
             # load the needed data of block
-            # need a fix due to issues with nan as nodata value - not the most elegant way but fast
-            if np.isnan(var_nodata):
-                aData = src_var.read(1, window=window, masked=True)
-                aData = aData.filled(fill_value=-99999)
-                var_nodata = -99999
-            else:
-                aData = src_var.read(1, window=window)
+            aData = src_var.read(1, window=window)
             aUpper = src_upper.read(1, window=window)
             aLower = src_lower.read(1, window=window)
 
             # shortcut
-            if (aData == var_nodata).all():
+            if (aData == src_var.nodata).all():
                 t_inner.update()
                 continue
 
@@ -213,9 +197,9 @@ def data_extraction(options, var_dtype, eco_list):
             # loop over the ecosystems to extract data in block
             for element in pList:
                 dict_statistics_lower[element] = np.append(dict_statistics_lower[element],
-                                                           aData[(aLower == element) & (aData != var_nodata)])
+                                                           aData[(aLower == element) & (aData != src_var.nodata)])
                 dict_statistics_upper[element] = np.append(dict_statistics_upper[element],
-                                                           aData[(aUpper == element) & (aData != var_nodata)])
+                                                           aData[(aUpper == element) & (aData != src_var.nodata)])
 
             # free space
             aData = None
@@ -326,24 +310,6 @@ def main():
             df_LUT.loc[dict_eco[eco], f'{options.var_name}_lower'] = np.percentile(dict_statistics_lower[eco], 2)
         t_outer.update()
     t_outer.close()
-
-    # some overruling
-    if options.overrule:
-        df_LUT.loc['BLF_ARC', f'{options.var_name}_upper'] = df_LUT.loc['BLF_ALS', f'{options.var_name}_upper']
-        df_LUT.loc['CFF_ARC', f'{options.var_name}_upper'] = df_LUT.loc['CFF_ALS', f'{options.var_name}_upper']
-        df_LUT.loc['MXF_ARC', f'{options.var_name}_upper'] = df_LUT.loc['MXF_ALS', f'{options.var_name}_upper']
-        df_LUT.loc['TWS_ARC', f'{options.var_name}_upper'] = df_LUT.loc['TWS_ALS', f'{options.var_name}_upper']
-
-        #df_LUT.loc['BLF_BLS', f'{options.var_name}_upper'] = df_LUT.loc['BLF_PAN', f'{options.var_name}_upper']
-        df_LUT.loc['CFF_BLS', f'{options.var_name}_upper'] = df_LUT.loc['CFF_PAN', f'{options.var_name}_upper']
-        df_LUT.loc['MXF_BLS', f'{options.var_name}_upper'] = df_LUT.loc['MXF_PAN', f'{options.var_name}_upper']
-        df_LUT.loc['TWS_BLS', f'{options.var_name}_upper'] = df_LUT.loc['TWS_PAN', f'{options.var_name}_upper']
-
-        #df_LUT.loc['BLF_STE', f'{options.var_name}_upper'] = df_LUT.loc['BLF_PAN', f'{options.var_name}_upper']
-        df_LUT.loc['CFF_STE', f'{options.var_name}_upper'] = df_LUT.loc['CFF_PAN', f'{options.var_name}_upper']
-        df_LUT.loc['MXF_STE', f'{options.var_name}_upper'] = df_LUT.loc['MXF_PAN', f'{options.var_name}_upper']
-        df_LUT.loc['TWS_STE', f'{options.var_name}_upper'] = df_LUT.loc['TWS_PAN', f'{options.var_name}_upper']
-
 
     # dump the results
     print('* write results to disk')

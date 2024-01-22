@@ -32,7 +32,7 @@ AUTHOR
     Dr. Marcel Buchhorn <marcel.buchhorn@vito.be>
 
 VERSION
-    1.1 (2023-11-27)
+    1.2 (2023-12-13)
 """
 
 
@@ -55,7 +55,7 @@ block_shape = (1024, 1024)
 ##### FUNCTIONS
 def parse_args():
     parser = optparse.OptionParser(formatter=optparse.TitledHelpFormatter(), usage=globals()['__doc__'],
-                                   version="%prog v1.1")
+                                   version="%prog v1.2")
     parser.add_option('-v', '--verbose', action='store_true', default=False, help='verbose output')
     parser.add_option('-i', '--path_var', help='Path to raster data of forest condition variable.',
                       dest='path_var')
@@ -178,13 +178,21 @@ def data_extraction(options, var_dtype, eco_list):
 
         # now iterate over the blocks of src files and process
         for index, window in block_window_generator(block_shape, src_var.height, src_var.width):
+            var_nodata = src_var.nodata
+
             # load the needed data of block
-            aData = src_var.read(1, window=window)
+            # need a fix due to issues with nan as nodata value - not the most elegant way but fast
+            if np.isnan(var_nodata):
+                aData = src_var.read(1, window=window, masked=True)
+                aData = aData.filled(fill_value=-99999)
+                var_nodata = -99999
+            else:
+                aData = src_var.read(1, window=window)
             aUpper = src_upper.read(1, window=window)
             aLower = src_lower.read(1, window=window)
 
             # shortcut
-            if (aData == src_var.nodata).all():
+            if (aData == var_nodata).all():
                 t_inner.update()
                 continue
 
@@ -201,9 +209,9 @@ def data_extraction(options, var_dtype, eco_list):
             # loop over the ecosystems to extract data in block
             for element in pList:
                 dict_statistics_lower[element] = np.append(dict_statistics_lower[element],
-                                                           aData[(aLower == element) & (aData != src_var.nodata)])
+                                                           aData[(aLower == element) & (aData != var_nodata)])
                 dict_statistics_upper[element] = np.append(dict_statistics_upper[element],
-                                                           aData[(aUpper == element) & (aData != src_var.nodata)])
+                                                           aData[(aUpper == element) & (aData != var_nodata)])
 
             # free space
             aData = None
