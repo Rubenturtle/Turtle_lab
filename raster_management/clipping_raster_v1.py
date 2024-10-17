@@ -1,6 +1,4 @@
 import os
-import sys
-from osgeo import gdal
 
 #Set the size of the file with gdalinfo or QGIS
 width = 158159
