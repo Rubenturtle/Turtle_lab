@@ -8,7 +8,7 @@ import time
 hostname = '192.168.250.1'
 username = 'bc3'
 port = 22
-password = ''
+password = 'Sis-8905'
 
 #We set the parameters to create the connection to the server
 ssh = paramiko.SSHClient()
